@@ -7,6 +7,13 @@ const DIMENSION_COLORS = {
   action: 'bg-emerald-50 text-emerald-700',
 };
 
+const DIMENSION_LABELS = {
+  direct: '直接描述型',
+  metaphor: '隐喻比喻型',
+  emotional: '情感共鸣型',
+  action: '行动导向型',
+};
+
 const LEVEL_COLORS = {
   A: 'bg-emerald-50 text-emerald-700',
   B: 'bg-primary-50 text-primary-700',
@@ -18,7 +25,7 @@ const LEVEL_COLORS = {
 export default function CandidateCard({ candidate, isSelected, onToggleCompare }) {
   const [expanded, setExpanded] = useState(false);
 
-  const dimensionLabel = candidate.dimension.charAt(0).toUpperCase() + candidate.dimension.slice(1);
+  const dimensionLabel = DIMENSION_LABELS[candidate.dimension] || candidate.dimension;
 
   return (
     <div className={`card p-5 transition-all duration-200 ${isSelected ? 'ring-2 ring-primary-500 ring-offset-2' : ''}`}>
@@ -31,13 +38,13 @@ export default function CandidateCard({ candidate, isSelected, onToggleCompare }
               {dimensionLabel}
             </span>
             <span className={`badge ${LEVEL_COLORS[candidate.score.recommendationLevel]}`}>
-              Level {candidate.score.recommendationLevel}
+              {candidate.score.recommendationLevel} 级
             </span>
           </div>
         </div>
         <div className="text-right">
           <div className="text-3xl font-bold text-gray-900">{candidate.score.totalScore}</div>
-          <p className="text-xs text-gray-500">Total score</p>
+          <p className="text-xs text-gray-500">综合得分</p>
         </div>
       </div>
 
@@ -47,12 +54,12 @@ export default function CandidateCard({ candidate, isSelected, onToggleCompare }
       {/* Score Grid */}
       <div className="grid grid-cols-3 gap-2 mb-4">
         {[
-          { label: 'Clarity', value: candidate.score.clarity },
-          { label: 'Brand Fit', value: candidate.score.brandFit },
-          { label: 'Memorability', value: candidate.score.memorability },
-          { label: 'Spreadability', value: candidate.score.spreadability },
-          { label: 'Uniqueness', value: candidate.score.uniqueness },
-          { label: 'Registrability', value: candidate.score.registrability },
+          { label: '清晰度', value: candidate.score.clarity },
+          { label: '品牌契合', value: candidate.score.brandFit },
+          { label: '记忆度', value: candidate.score.memorability },
+          { label: '传播力', value: candidate.score.spreadability },
+          { label: '独特性', value: candidate.score.uniqueness },
+          { label: '可注册性', value: candidate.score.registrability },
         ].map((item) => (
           <div key={item.label} className="bg-gray-50 rounded-lg p-2 text-center">
             <div className="text-lg font-semibold text-gray-900">{item.value}</div>
@@ -66,7 +73,7 @@ export default function CandidateCard({ candidate, isSelected, onToggleCompare }
         onClick={() => setExpanded(!expanded)}
         className="text-sm text-primary-600 hover:text-primary-700 font-medium mb-4"
       >
-        {expanded ? 'Show less' : 'Show details'}
+        {expanded ? '收起详情' : '查看详情'}
       </button>
 
       {/* Expanded Details */}
@@ -74,18 +81,18 @@ export default function CandidateCard({ candidate, isSelected, onToggleCompare }
         <div className="space-y-4 border-t border-gray-100 pt-4 animate-fade-in">
           {/* Why this name works */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Why this name works</h4>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">命名解析</h4>
             <ul className="text-sm text-gray-600 space-y-1">
-              <li><strong>Tone fit:</strong> {candidate.toneFit}</li>
-              <li><strong>Audience fit:</strong> {candidate.audienceFit}</li>
-              <li><strong>Usage:</strong> {candidate.usageSuggestion}</li>
-              <li><strong>Risk:</strong> {candidate.riskNote}</li>
+              <li><strong>调性契合:</strong> {candidate.toneFit}</li>
+              <li><strong>受众契合:</strong> {candidate.audienceFit}</li>
+              <li><strong>使用建议:</strong> {candidate.usageSuggestion}</li>
+              <li><strong>风险提示:</strong> {candidate.riskNote}</li>
             </ul>
           </div>
 
           {/* Feasibility */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Feasibility review</h4>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">可行性评估</h4>
             <div className="space-y-2 text-sm">
               <div className="flex items-start gap-2">
                 <span className={`badge ${
@@ -122,7 +129,7 @@ export default function CandidateCard({ candidate, isSelected, onToggleCompare }
 
           {/* Score Summary */}
           <div>
-            <h4 className="text-sm font-semibold text-gray-900 mb-2">Score summary</h4>
+            <h4 className="text-sm font-semibold text-gray-900 mb-2">评分说明</h4>
             <p className="text-sm text-gray-600">{candidate.score.summary}</p>
           </div>
         </div>
@@ -137,10 +144,10 @@ export default function CandidateCard({ candidate, isSelected, onToggleCompare }
             onChange={onToggleCompare}
             className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
           />
-          <span className="text-sm text-gray-600">Add to compare</span>
+          <span className="text-sm text-gray-600">加入对比</span>
         </label>
         <span className="text-xs text-gray-400">
-          {candidate.nameLength} characters
+          {candidate.nameLength} 个字符
         </span>
       </div>
     </div>

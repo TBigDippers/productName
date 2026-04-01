@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { fetchConfig } from './api';
+import { fetchConfig, fetchTask } from './api';
 import Header from './components/Header';
 import NamingForm from './components/NamingForm';
 import ResultsPanel from './components/ResultsPanel';
@@ -27,7 +27,7 @@ export default function App() {
   const handleTaskGenerated = (task) => {
     setCurrentTask(task);
     setCompareSelection([]);
-    showToast('Generated 10 naming candidates successfully!', 'success');
+    showToast('已成功生成 10 个候选命名方案！', 'success');
   };
 
   const toggleCompare = (candidateId) => {
@@ -36,7 +36,7 @@ export default function App() {
         return prev.filter((id) => id !== candidateId);
       }
       if (prev.length >= 4) {
-        showToast('You can compare up to 4 candidates at a time', 'warning');
+        showToast('一次最多只能对比 4 个候选名称', 'warning');
         return prev;
       }
       return [...prev, candidateId];
@@ -89,11 +89,16 @@ export default function App() {
       <HistoryDialog
         isOpen={showHistory}
         onClose={() => setShowHistory(false)}
-        onLoadTask={(task) => {
-          setCurrentTask(task);
-          setCompareSelection([]);
-          setShowHistory(false);
-          showToast('Loaded historical task', 'success');
+        onLoadTask={async (taskId) => {
+          try {
+            const task = await fetchTask(taskId);
+            setCurrentTask(task);
+            setCompareSelection([]);
+            setShowHistory(false);
+            showToast('已加载历史任务', 'success');
+          } catch (error) {
+            showToast(error.message || '加载历史任务失败', 'error');
+          }
         }}
       />
 

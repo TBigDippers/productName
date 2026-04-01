@@ -1,5 +1,12 @@
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { compareCandidates } from '../api';
+
+const DIMENSION_LABELS = {
+  direct: '直接描述型',
+  metaphor: '隐喻比喻型',
+  emotional: '情感共鸣型',
+  action: '行动导向型'
+};
 
 export default function CompareDrawer({ isOpen, onClose, task, selection, onRemove, showToast }) {
   const { data: comparison, isLoading } = useQuery({
@@ -19,8 +26,8 @@ export default function CompareDrawer({ isOpen, onClose, task, selection, onRemo
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <div>
-              <p className="text-sm font-medium text-primary-600">Compare</p>
-              <h2 className="text-xl font-bold text-gray-900">Candidate comparison</h2>
+              <p className="text-sm font-medium text-primary-600">对比</p>
+              <h2 className="text-xl font-bold text-gray-900">候选名称对比</h2>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
               <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -39,10 +46,10 @@ export default function CompareDrawer({ isOpen, onClose, task, selection, onRemo
                   </svg>
                 </div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                  {selection.length ? 'Add one more candidate' : 'No candidates selected'}
+                  {selection.length ? '再选择一个候选名称' : '未选择候选名称'}
                 </h3>
                 <p className="text-gray-500">
-                  {selection.length ? 'Choose at least two names to compare.' : 'Select up to four names from the result list.'}
+                  {selection.length ? '至少需要选择两个名称才能对比。' : '从结果列表中选择最多四个名称进行对比。'}
                 </p>
               </div>
             ) : isLoading ? (
@@ -57,7 +64,7 @@ export default function CompareDrawer({ isOpen, onClose, task, selection, onRemo
             ) : comparison && comparison.length > 0 ? (
               <div className="space-y-6">
                 <p className="text-sm text-gray-500">
-                  Compare the strengths and weaknesses of {comparison.length} selected candidates.
+                  对比 {comparison.length} 个已选候选名称的优劣势。
                 </p>
 
                 {comparison.map((item) => (
@@ -65,12 +72,12 @@ export default function CompareDrawer({ isOpen, onClose, task, selection, onRemo
                     <div className="flex items-start justify-between mb-3">
                       <div>
                         <h4 className="text-lg font-bold text-gray-900">{item.name}</h4>
-                        <span className="badge badge-primary">{item.dimension}</span>
+                        <span className="badge badge-primary">{DIMENSION_LABELS[item.dimension] || item.dimension}</span>
                       </div>
                       <div className="text-right">
                         <div className="text-2xl font-bold text-gray-900">{item.totalScore}</div>
                         <span className={`badge ${item.recommendationLevel === 'A' ? 'badge-success' : item.recommendationLevel === 'B' ? 'badge-primary' : 'badge-warning'}`}>
-                          Level {item.recommendationLevel}
+                          {item.recommendationLevel} 级
                         </span>
                       </div>
                     </div>
@@ -94,7 +101,7 @@ export default function CompareDrawer({ isOpen, onClose, task, selection, onRemo
                       onClick={() => onRemove(item.candidateId)}
                       className="mt-3 text-sm text-red-600 hover:text-red-700 font-medium"
                     >
-                      Remove from comparison
+                      从对比中移除
                     </button>
                   </div>
                 ))}

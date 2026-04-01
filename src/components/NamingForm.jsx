@@ -1,12 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
-import { generateNames } from '../api';
+import { generateNames, generateNamesWithLLM } from '../api';
 
 const DIMENSION_LABELS = {
-  direct: 'Direct',
-  metaphor: 'Metaphor',
-  emotional: 'Emotional',
-  action: 'Action',
+  direct: '直接描述型',
+  metaphor: '隐喻比喻型',
+  emotional: '情感共鸣型',
+  action: '行动导向型'
 };
 
 export default function NamingForm({ config, isLoading, onTaskGenerated, showToast }) {
@@ -18,56 +18,73 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
     namingPreference: [],
     forbiddenWords: '',
     language: 'en-US',
-    dimensionWeight: { direct: 30, metaphor: 20, emotional: 20, action: 30 },
+    mode: 'heuristic',
+    model: 'glm-4.5',
+    apiKey: '',
+    dimensionWeight: { direct: 30, metaphor: 20, emotional: 20, action: 30 }
   });
 
-  const [dimensionTotal, setDimensionTotal] = useState(100);
+  const dimensionTotal = useMemo(
+    () => Object.values(formData.dimensionWeight).reduce((sum, val) => sum + val, 0),
+    [formData.dimensionWeight]
+  );
+
+  const isLLMMode = formData.mode === 'llm';
 
   useEffect(() => {
-    const total = Object.values(formData.dimensionWeight).reduce((sum, val) => sum + val, 0);
-    setDimensionTotal(total);
-  }, [formData.dimensionWeight]);
+    if (!config?.llmModels?.length) return;
+    setFormData((prev) => ({
+      ...prev,
+      model: config.llmModels.includes(prev.model) ? prev.model : config.llmModels[0]
+    }));
+  }, [config]);
 
   const generateMutation = useMutation({
-    mutationFn: generateNames,
+    mutationFn: (payload) => (payload.mode === 'llm' ? generateNamesWithLLM(payload) : generateNames(payload)),
     onSuccess: onTaskGenerated,
-    onError: (error) => {
-      showToast(error.message || 'Failed to generate names', 'error');
-    },
+    onError: (error) => showToast(error.message || '生成命名失败', 'error')
   });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+  const handleSubmit = (event) => {
+    event.preventDefault();
 
     if (formData.featureDescription.length < 10) {
-      showToast('Feature description must be at least 10 characters', 'error');
+      showToast('功能描述至少需要 10 个字符', 'error');
       return;
     }
 
     if (!formData.targetUsers.trim()) {
-      showToast('Target users is required', 'error');
+      showToast('请填写目标用户', 'error');
       return;
     }
 
     if (dimensionTotal !== 100) {
-      showToast('Dimension weights must add up to 100%', 'error');
+      showToast('维度权重之和必须为 100%', 'error');
       return;
     }
 
-    const total = Object.values(formData.dimensionWeight).reduce((sum, val) => sum + val, 0);
+    if (isLLMMode && !formData.apiKey.trim()) {
+      showToast('LLM 模式需要智谱 API Key', 'error');
+      return;
+    }
+
+    const total = Object.values(formData.dimensionWeight).reduce((sum, value) => sum + value, 0);
     const normalizedWeight = Object.fromEntries(
-      Object.entries(formData.dimensionWeight).map(([key, val]) => [key, val / total])
+      Object.entries(formData.dimensionWeight).map(([key, value]) => [key, value / total])
     );
 
     generateMutation.mutate({
       featureDescription: formData.featureDescription,
-      targetUsers: formData.targetUsers.split(/[,\n]/).map((s) => s.trim()).filter(Boolean),
+      targetUsers: formData.targetUsers.split(/[,\n]/).map((item) => item.trim()).filter(Boolean),
       industry: formData.industry,
       brandTone: formData.brandTone,
       namingPreference: formData.namingPreference,
-      forbiddenWords: formData.forbiddenWords.split(/[,\n]/).map((s) => s.trim()).filter(Boolean),
+      forbiddenWords: formData.forbiddenWords.split(/[,\n]/).map((item) => item.trim()).filter(Boolean),
       language: formData.language,
       dimensionWeight: normalizedWeight,
+      mode: formData.mode,
+      model: formData.model,
+      apiKey: formData.apiKey.trim()
     });
   };
 
@@ -80,7 +97,10 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
       namingPreference: [],
       forbiddenWords: '',
       language: 'en-US',
-      dimensionWeight: { direct: 30, metaphor: 20, emotional: 20, action: 30 },
+      mode: 'heuristic',
+      model: config?.llmModels?.[0] || 'glm-4.5',
+      apiKey: '',
+      dimensionWeight: { direct: 30, metaphor: 20, emotional: 20, action: 30 }
     });
   };
 
@@ -88,8 +108,8 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
     setFormData((prev) => ({
       ...prev,
       [field]: prev[field].includes(value)
-        ? prev[field].filter((v) => v !== value)
-        : [...prev[field], value],
+        ? prev[field].filter((item) => item !== value)
+        : [...prev[field], value]
     }));
   };
 
@@ -98,19 +118,19 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
       ...prev,
       dimensionWeight: {
         ...prev.dimensionWeight,
-        [key]: Number(value),
-      },
+        [key]: Number(value)
+      }
     }));
   };
 
   if (isLoading) {
     return (
       <div className="card p-6 animate-pulse">
-        <div className="h-6 bg-gray-200 rounded w-1/2 mb-4"></div>
+        <div className="h-6 bg-gray-200 rounded w-1/2 mb-4" />
         <div className="space-y-4">
-          <div className="h-24 bg-gray-200 rounded"></div>
-          <div className="h-12 bg-gray-200 rounded"></div>
-          <div className="h-12 bg-gray-200 rounded"></div>
+          <div className="h-24 bg-gray-200 rounded" />
+          <div className="h-12 bg-gray-200 rounded" />
+          <div className="h-12 bg-gray-200 rounded" />
         </div>
       </div>
     );
@@ -120,127 +140,174 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
     <div className="card p-6">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-lg font-semibold text-gray-900">Create Naming Brief</h2>
-          <p className="text-sm text-gray-500 mt-1">Define your feature and brand context</p>
+          <h2 className="text-lg font-semibold text-gray-900">命名工作台</h2>
+          <p className="text-sm text-gray-500 mt-1">填写需求简报，选择生成模式</p>
         </div>
-        <button onClick={handleReset} className="btn-ghost text-sm">
-          Reset
+        <button onClick={handleReset} className="btn-ghost text-sm" type="button">
+          重置
         </button>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Feature Description */}
+        <div className="bg-gray-50 border border-gray-100 rounded-xl p-4 space-y-3">
+          <p className="text-sm font-medium text-gray-700">生成模式</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setFormData((prev) => ({ ...prev, mode: 'heuristic' }))}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                formData.mode === 'heuristic'
+                  ? 'bg-white text-primary-700 ring-2 ring-primary-400/40'
+                  : 'bg-transparent text-gray-600 hover:bg-white'
+              }`}
+            >
+              规则引擎
+            </button>
+            <button
+              type="button"
+              onClick={() => setFormData((prev) => ({ ...prev, mode: 'llm' }))}
+              className={`rounded-lg px-3 py-2 text-sm font-medium transition ${
+                formData.mode === 'llm'
+                  ? 'bg-white text-primary-700 ring-2 ring-primary-400/40'
+                  : 'bg-transparent text-gray-600 hover:bg-white'
+              }`}
+            >
+              大模型 (智谱)
+            </button>
+          </div>
+
+          {isLLMMode && (
+            <div className="space-y-3 pt-2 border-t border-gray-200">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">模型</label>
+                <select
+                  value={formData.model}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, model: e.target.value }))}
+                  className="input"
+                >
+                  {(config?.llmModels || ['glm-4.5']).map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">智谱 API Key</label>
+                <input
+                  type="password"
+                  value={formData.apiKey}
+                  onChange={(e) => setFormData((prev) => ({ ...prev, apiKey: e.target.value }))}
+                  className="input"
+                  placeholder="{APIKeyID}.{secret}"
+                  autoComplete="off"
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  密钥仅用于当前请求。生产环境建议在服务端配置 ZHIPU_API_KEY 环境变量。
+                </p>
+              </div>
+            </div>
+          )}
+        </div>
+
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Feature description <span className="text-red-500">*</span>
+            功能描述 <span className="text-red-500">*</span>
           </label>
           <textarea
             value={formData.featureDescription}
-            onChange={(e) => setFormData({ ...formData, featureDescription: e.target.value })}
+            onChange={(e) => setFormData((prev) => ({ ...prev, featureDescription: e.target.value }))}
             rows={4}
             className="input resize-none"
-            placeholder="Describe what the feature does, who uses it, and what problem it solves..."
+            placeholder="描述功能的作用、使用者以及解决的问题"
           />
-          <p className="mt-1 text-xs text-gray-400">
-            {formData.featureDescription.length}/300 characters (min 10)
-          </p>
+          <p className="mt-1 text-xs text-gray-400">{formData.featureDescription.length}/300 字符（至少 10 个）</p>
         </div>
 
-        {/* Target Users */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            Target users <span className="text-red-500">*</span>
+            目标用户 <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={formData.targetUsers}
-            onChange={(e) => setFormData({ ...formData, targetUsers: e.target.value })}
+            onChange={(e) => setFormData((prev) => ({ ...prev, targetUsers: e.target.value }))}
             className="input"
-            placeholder="e.g. ecommerce shoppers, office managers"
+            placeholder="例如：电商购物者、办公室管理员"
           />
-          <p className="mt-1 text-xs text-gray-400">Use commas to separate multiple audiences</p>
+          <p className="mt-1 text-xs text-gray-400">多个用户群体请用逗号分隔</p>
         </div>
 
-        {/* Industry */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Industry</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">行业</label>
           <select
             value={formData.industry}
-            onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+            onChange={(e) => setFormData((prev) => ({ ...prev, industry: e.target.value }))}
             className="input"
           >
             {config?.industries?.map((industry) => (
               <option key={industry} value={industry}>
-                {industry.charAt(0).toUpperCase() + industry.slice(1).replace('_', ' ')}
+                {config?.industryLabels?.[industry] || industry}
               </option>
             ))}
           </select>
         </div>
 
-        {/* Brand Tone */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Brand tone</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">品牌调性（可选）</label>
           <div className="flex flex-wrap gap-2">
             {config?.brandToneOptions?.map((tone) => (
               <button
                 key={tone}
                 type="button"
                 onClick={() => toggleChip('brandTone', tone)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                   formData.brandTone.includes(tone)
                     ? 'bg-primary-100 text-primary-700 ring-2 ring-primary-500/30'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {tone.charAt(0).toUpperCase() + tone.slice(1).replace('_', ' ')}
+                {config?.brandToneLabels?.[tone] || tone}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Naming Preference */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Naming preference</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">命名偏好</label>
           <div className="flex flex-wrap gap-2">
             {config?.namingPreferenceOptions?.map((pref) => (
               <button
                 key={pref}
                 type="button"
                 onClick={() => toggleChip('namingPreference', pref)}
-                className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-full text-sm font-medium transition ${
                   formData.namingPreference.includes(pref)
                     ? 'bg-primary-100 text-primary-700 ring-2 ring-primary-500/30'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {pref.charAt(0).toUpperCase() + pref.slice(1).replace('_', ' ')}
+                {config?.namingPreferenceLabels?.[pref] || pref}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Forbidden Words */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">Forbidden words</label>
+          <label className="block text-sm font-medium text-gray-700 mb-2">禁用词</label>
           <input
             type="text"
             value={formData.forbiddenWords}
-            onChange={(e) => setFormData({ ...formData, forbiddenWords: e.target.value })}
+            onChange={(e) => setFormData((prev) => ({ ...prev, forbiddenWords: e.target.value }))}
             className="input"
-            placeholder="e.g. smart, assistant"
+            placeholder="例如：智能、助手"
           />
-          <p className="mt-1 text-xs text-gray-400">Names containing these words will be filtered out</p>
         </div>
 
-        {/* Dimension Weights */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700">Dimension weight</label>
-            <span
-              className={`text-sm font-semibold ${
-                dimensionTotal === 100 ? 'text-green-600' : 'text-red-500'
-              }`}
-            >
+            <label className="text-sm font-medium text-gray-700">维度权重</label>
+            <span className={`text-sm font-semibold ${dimensionTotal === 100 ? 'text-green-600' : 'text-red-500'}`}>
               {dimensionTotal}%
             </span>
           </div>
@@ -249,9 +316,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
               <div key={key} className="bg-gray-50 rounded-xl p-3">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium text-gray-600">{label}</span>
-                  <span className="text-sm font-semibold text-gray-900">
-                    {formData.dimensionWeight[key]}%
-                  </span>
+                  <span className="text-sm font-semibold text-gray-900">{formData.dimensionWeight[key]}%</span>
                 </div>
                 <input
                   type="range"
@@ -265,38 +330,24 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
               </div>
             ))}
           </div>
-          {dimensionTotal !== 100 && (
-            <p className="mt-2 text-sm text-red-500">Weights must add up to 100%</p>
-          )}
         </div>
 
-        {/* Warning */}
         {config?.warningCopy && (
           <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl">
             <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
             </svg>
             <p className="text-sm text-amber-700">{config.warningCopy}</p>
           </div>
         )}
 
-        {/* Submit Button */}
-        <button
-          type="submit"
-          disabled={generateMutation.isPending}
-          className="w-full btn-primary py-4 text-base"
-        >
-          {generateMutation.isPending ? (
-            <>
-              <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-              </svg>
-              Generating...
-            </>
-          ) : (
-            'Generate Naming Options'
-          )}
+        <button type="submit" disabled={generateMutation.isPending} className="w-full btn-primary py-4 text-base">
+          {generateMutation.isPending ? '生成中...' : isLLMMode ? '使用大模型生成' : '生成命名方案'}
         </button>
       </form>
     </div>

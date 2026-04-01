@@ -19,8 +19,8 @@ export default function HistoryDialog({ isOpen, onClose, onLoadTask }) {
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <div>
-              <p className="text-sm font-medium text-primary-600">History</p>
-              <h2 className="text-xl font-bold text-gray-900">Previous naming tasks</h2>
+              <p className="text-sm font-medium text-primary-600">历史</p>
+              <h2 className="text-xl font-bold text-gray-900">历史命名任务</h2>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
               <svg className="w-5 h-5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -67,7 +67,7 @@ export default function HistoryDialog({ isOpen, onClose, onLoadTask }) {
                       </div>
                     </div>
                     <p className="text-sm text-gray-500 mb-3">
-                      Target users: {task.targetUsers?.join(', ') || 'N/A'}
+                      目标用户: {task.targetUsers?.join(', ') || '无'}
                     </p>
                     <button
                       onClick={() => onLoadTask(task.taskId)}
@@ -76,8 +76,8 @@ export default function HistoryDialog({ isOpen, onClose, onLoadTask }) {
                       <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                      </svg>
-                      Open result
+                    >
+                      查看结果
                     </button>
                   </div>
                 ))}
@@ -89,8 +89,8 @@ export default function HistoryDialog({ isOpen, onClose, onLoadTask }) {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">No history yet</h3>
-                <p className="text-gray-500">Completed naming tasks will appear here.</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">暂无历史记录</h3>
+                <p className="text-gray-500">完成的命名任务将在此处显示。</p>
               </div>
             )}
           </div>

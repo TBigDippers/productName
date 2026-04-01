@@ -11,10 +11,10 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
     mutationFn: () => exportTask(task?.taskId, 'csv'),
     onSuccess: (url) => {
       window.open(url, '_blank');
-      showToast('CSV export prepared', 'success');
+      showToast('CSV 导出成功', 'success');
     },
     onError: (error) => {
-      showToast(error.message || 'Export failed', 'error');
+      showToast(error.message || '导出失败', 'error');
     },
   });
 
@@ -26,8 +26,8 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
         </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No results yet</h3>
-        <p className="text-gray-500">Fill the form on the left and generate naming options</p>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">暂无结果</h3>
+        <p className="text-gray-500">请先填写左侧表单并生成命名方案</p>
       </div>
     );
   }
@@ -52,7 +52,7 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
       <div className="card p-6">
         <div className="flex items-start justify-between mb-4">
           <div>
-            <p className="text-sm font-medium text-primary-600 mb-1">Brief summary</p>
+            <p className="text-sm font-medium text-primary-600 mb-1">需求摘要</p>
             <h3 className="text-lg font-semibold text-gray-900">{task.inputSummary.featureDescription}</h3>
           </div>
           <button
@@ -63,25 +63,25 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
             <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>
-            {exportMutation.isPending ? 'Exporting...' : 'Export CSV'}
+            {exportMutation.isPending ? '导出中...' : '导出 CSV'}
           </button>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
           <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-1">Total candidates</p>
+            <p className="text-xs text-gray-500 mb-1">候选名称总数</p>
             <p className="text-2xl font-bold text-gray-900">{task.candidates.length}</p>
           </div>
           <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-1">A/B recommendations</p>
+            <p className="text-xs text-gray-500 mb-1">A/B 级推荐</p>
             <p className="text-2xl font-bold text-gray-900">{topTier}</p>
           </div>
           <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-1">Best score</p>
+            <p className="text-xs text-gray-500 mb-1">最高得分</p>
             <p className="text-2xl font-bold text-gray-900">{task.candidates[0]?.score.totalScore || 0}</p>
           </div>
           <div className="bg-gray-50 rounded-xl p-3">
-            <p className="text-xs text-gray-500 mb-1">Target users</p>
+            <p className="text-xs text-gray-500 mb-1">目标用户</p>
             <p className="text-sm font-medium text-gray-900 truncate">
               {task.inputSummary.targetUsers?.join(', ') || 'N/A'}
             </p>
@@ -90,16 +90,16 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
 
         <div className="flex flex-wrap gap-4 text-sm">
           <span className="text-gray-500">
-            Direct: <strong className="text-gray-900">{dimensionCount.direct || 0}</strong>
+            直接描述型: <strong className="text-gray-900">{dimensionCount.direct || 0}</strong>
           </span>
           <span className="text-gray-500">
-            Metaphor: <strong className="text-gray-900">{dimensionCount.metaphor || 0}</strong>
+            隐喻比喻型: <strong className="text-gray-900">{dimensionCount.metaphor || 0}</strong>
           </span>
           <span className="text-gray-500">
-            Emotional: <strong className="text-gray-900">{dimensionCount.emotional || 0}</strong>
+            情感共鸣型: <strong className="text-gray-900">{dimensionCount.emotional || 0}</strong>
           </span>
           <span className="text-gray-500">
-            Action: <strong className="text-gray-900">{dimensionCount.action || 0}</strong>
+            行动导向型: <strong className="text-gray-900">{dimensionCount.action || 0}</strong>
           </span>
         </div>
       </div>
@@ -107,31 +107,31 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
       {/* Filters */}
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Filter by:</label>
+          <label className="text-sm font-medium text-gray-700">筛选条件:</label>
           <select
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="input w-auto py-2 px-3 text-sm"
           >
-            <option value="all">All dimensions</option>
-            <option value="direct">Direct</option>
-            <option value="metaphor">Metaphor</option>
-            <option value="emotional">Emotional</option>
-            <option value="action">Action</option>
+            <option value="all">全部维度</option>
+            <option value="direct">直接描述型</option>
+            <option value="metaphor">隐喻比喻型</option>
+            <option value="emotional">情感共鸣型</option>
+            <option value="action">行动导向型</option>
           </select>
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm font-medium text-gray-700">Sort by:</label>
+          <label className="text-sm font-medium text-gray-700">排序方式:</label>
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
             className="input w-auto py-2 px-3 text-sm"
           >
-            <option value="totalScore">Total score</option>
-            <option value="clarity">Clarity</option>
-            <option value="brandFit">Brand fit</option>
-            <option value="memorability">Memorability</option>
+            <option value="totalScore">综合得分</option>
+            <option value="clarity">清晰度</option>
+            <option value="brandFit">品牌契合度</option>
+            <option value="memorability">记忆度</option>
           </select>
         </div>
       </div>
@@ -150,7 +150,7 @@ export default function ResultsPanel({ task, compareSelection, onToggleCompare, 
 
       {candidates.length === 0 && (
         <div className="card p-8 text-center">
-          <p className="text-gray-500">No candidates match the current filter</p>
+          <p className="text-gray-500">没有符合当前筛选条件的候选名称</p>
         </div>
       )}
     </div>

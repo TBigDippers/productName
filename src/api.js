@@ -62,3 +62,17 @@ export async function exportTask(taskId, format = 'csv') {
   const data = await response.json();
   return data.data.downloadUrl;
 }
+
+export async function generateNamesWithLLM(payload) {
+  const response = await fetch(`${API_BASE}/naming/generate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...payload, mode: 'llm' }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to generate names with LLM');
+  }
+  const data = await response.json();
+  return data.data;
+}

@@ -1,11 +1,12 @@
-const http = require('node:http');
-const fs = require('node:fs');
-const path = require('node:path');
-const { createTask, compareCandidates, getConfig } = require('./src/naming-engine');
+import http from 'node:http';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { createTask, createTaskWithLLM, compareCandidates, getConfig } from './src/naming-engine.js';
 
 const PORT = Number(process.env.PORT || 3000);
-const ROOT_DIR = __dirname;
-const PUBLIC_DIR = path.join(ROOT_DIR, 'public');
+const __filename = fileURLToPath(import.meta.url);
+const ROOT_DIR = path.dirname(__filename);
 const DATA_DIR = path.join(ROOT_DIR, 'data');
 const EXPORT_DIR = path.join(ROOT_DIR, 'exports');
 const STORE_PATH = path.join(DATA_DIR, 'tasks.json');
@@ -28,12 +29,6 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
-    if (req.method === 'GET') {
-      const target = url.pathname === '/' ? path.join(PUBLIC_DIR, 'index.html') : path.join(PUBLIC_DIR, url.pathname);
-      serveFile(res, target, path.join(PUBLIC_DIR, 'index.html'));
-      return;
-    }
-
     sendJson(res, 404, { code: 404, message: 'Not found', data: null });
   } catch (error) {
     sendJson(res, 500, { code: 5000, message: error.message || 'Internal server error', data: null });
@@ -41,7 +36,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(PORT, () => {
-  console.log(`Naming generator is running at http://localhost:${PORT}`);
+  console.log(`Naming API server is running at http://localhost:${PORT}`);
 });
 
 async function handleApi(req, res, url) {
@@ -60,6 +55,7 @@ async function handleApi(req, res, url) {
         createdAt: task.createdAt,
         featureDescription: task.inputSummary.featureDescription,
         targetUsers: task.inputSummary.targetUsers,
+        generationMode: task.generationMode || 'heuristic',
         topCandidates: task.candidates.slice(0, 3).map((candidate) => ({
           id: candidate.id,
           name: candidate.name,
@@ -84,7 +80,8 @@ async function handleApi(req, res, url) {
 
   if (req.method === 'POST' && url.pathname === '/api/naming/generate') {
     const body = await readBody(req);
-    const result = createTask(body);
+    const mode = String(body.mode || 'heuristic');
+    const result = mode === 'llm' ? await createTaskWithLLM(body) : createTask(body);
     if (!result.ok) {
       sendJson(res, 400, { code: 1002, message: result.errors.join(' '), data: null });
       return;
@@ -120,7 +117,7 @@ async function handleApi(req, res, url) {
   if (req.method === 'POST' && url.pathname === '/api/naming/export') {
     const body = await readBody(req);
     if (body.format !== 'csv') {
-      sendJson(res, 400, { code: 3001, message: 'Only csv export is available in this MVP build.', data: null });
+      sendJson(res, 400, { code: 3001, message: 'Only csv export is available in this build.', data: null });
       return;
     }
 
@@ -147,29 +144,31 @@ async function handleApi(req, res, url) {
 
 function buildCsv(task) {
   const lines = [
-    ['Feature Description', task.inputSummary.featureDescription],
-    ['Brand Tone', task.inputSummary.brandTone.join(' | ')],
-    ['Target Users', task.inputSummary.targetUsers.join(' | ')],
-    ['Created At', task.createdAt],
+    ['功能描述', task.inputSummary.featureDescription],
+    ['品牌调性', task.inputSummary.brandTone.join(' | ')],
+    ['目标用户', task.inputSummary.targetUsers.join(' | ')],
+    ['生成模式', task.generationMode || 'heuristic'],
+    ['模型', task.model || 'rule-engine'],
+    ['创建时间', task.createdAt],
     [],
     [
-      'Name',
-      'Dimension',
-      'Reason',
-      'Tone Fit',
-      'Audience Fit',
-      'Usage Suggestion',
-      'Pronunciation',
-      'Memorability',
-      'Trademark Risk',
-      'Clarity',
-      'Brand Fit',
-      'Memorability Score',
-      'Spreadability',
-      'Uniqueness',
-      'Registrability',
-      'Total Score',
-      'Recommendation Level'
+      '名称',
+      '维度',
+      '命名理由',
+      '调性契合',
+      '受众契合',
+      '使用建议',
+      '发音难度',
+      '记忆度',
+      '商标风险',
+      '清晰度',
+      '品牌契合',
+      '记忆得分',
+      '传播力',
+      '独特性',
+      '可注册性',
+      '综合得分',
+      '推荐等级'
     ]
   ];
 
@@ -239,27 +238,19 @@ function sendJson(res, statusCode, payload) {
   res.end(JSON.stringify(payload));
 }
 
-function serveFile(res, targetPath, fallbackPath) {
-  let filePath = targetPath;
-  if (!fs.existsSync(filePath) || fs.statSync(filePath).isDirectory()) {
-    if (!fallbackPath) {
-      sendJson(res, 404, { code: 404, message: 'File not found', data: null });
-      return;
-    }
-    filePath = fallbackPath;
+function serveFile(res, targetPath) {
+  if (!fs.existsSync(targetPath) || fs.statSync(targetPath).isDirectory()) {
+    sendJson(res, 404, { code: 404, message: 'File not found', data: null });
+    return;
   }
 
-  const extension = path.extname(filePath);
+  const extension = path.extname(targetPath);
   const contentType = {
-    '.html': 'text/html; charset=utf-8',
-    '.js': 'application/javascript; charset=utf-8',
-    '.css': 'text/css; charset=utf-8',
-    '.json': 'application/json; charset=utf-8',
     '.csv': 'text/csv; charset=utf-8'
   }[extension] || 'application/octet-stream';
 
   res.writeHead(200, { 'Content-Type': contentType });
-  fs.createReadStream(filePath).pipe(res);
+  fs.createReadStream(targetPath).pipe(res);
 }
 
 function readBody(req) {

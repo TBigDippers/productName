@@ -1,4 +1,4 @@
-const crypto = require('node:crypto');
+import crypto from 'node:crypto';
 
 const CONFIG = {
   brandToneOptions: [
@@ -11,6 +11,16 @@ const CONFIG = {
     'premium',
     'friendly'
   ],
+  brandToneLabels: {
+    professional: '专业',
+    reliable: '可靠',
+    warm: '温暖',
+    young: '年轻',
+    technology: '科技',
+    minimal: '简约',
+    premium: '高端',
+    friendly: '友好'
+  },
   namingPreferenceOptions: [
     'concise',
     'easy_to_remember',
@@ -19,6 +29,23 @@ const CONFIG = {
     'young_style',
     'professional_style'
   ],
+  namingPreferenceLabels: {
+    concise: '简洁',
+    easy_to_remember: '易记',
+    brand_forward: '品牌导向',
+    feature_forward: '功能导向',
+    young_style: '年轻化',
+    professional_style: '专业感'
+  },
+  industryLabels: {
+    general: '通用',
+    ecommerce: '电商',
+    finance: '金融',
+    office: '办公',
+    education: '教育',
+    local_service: '本地生活',
+    content: '内容'
+  },
   industries: ['general', 'ecommerce', 'finance', 'office', 'education', 'local_service', 'content'],
   defaultDimensionWeight: {
     direct: 0.3,
@@ -26,7 +53,7 @@ const CONFIG = {
     emotional: 0.2,
     action: 0.3
   },
-  warningCopy: 'Trademark risk is an advisory heuristic only and not legal advice.'
+  warningCopy: '商标风险仅为启发式建议，不构成法律意见。'
 };
 
 const HARD_PRONUNCIATION_CHARS = ['攥', '飙', '璨', '巅', '曜', '翎', '翊', '曦'];
@@ -651,12 +678,263 @@ function compareCandidates(task, candidateIds) {
   });
 }
 
-function getConfig() {
-  return CONFIG;
+async function createTaskWithLLM(input) {
+  const parsed = parseInput(input);
+  const errors = validateInput(parsed);
+  if (errors.length) {
+    return { ok: false, errors };
+  }
+
+  const apiKey = String(input.apiKey || process.env.ZHIPU_API_KEY || '').trim();
+  if (!apiKey) {
+    return {
+      ok: false,
+      errors: ['Missing ZHIPU_API_KEY. Set server env or provide apiKey in request body.']
+    };
+  }
+
+  const model = String(input.model || 'glm-4.5').trim();
+  const promptPayload = {
+    requirement: {
+      featureDescription: parsed.featureDescription,
+      brandTone: parsed.brandTone,
+      targetUsers: parsed.targetUsers,
+      namingPreference: parsed.namingPreference,
+      forbiddenWords: parsed.forbiddenWords,
+      language: parsed.language,
+      dimensions: ['direct', 'metaphor', 'emotional', 'action']
+    },
+    outputSchema: {
+      candidates: [
+        {
+          name: 'string',
+          dimension: 'direct|metaphor|emotional|action',
+          reason: 'string',
+          toneFit: 'string',
+          audienceFit: 'string',
+          usageSuggestion: 'string',
+          feasibility: {
+            pronunciation: { level: 'low|medium|high', reason: 'string' },
+            memorability: { level: 'strong|medium|weak', reason: 'string' },
+            trademarkRisk: { level: 'low|medium|high', reason: 'string' }
+          },
+          score: {
+            clarity: '0-10',
+            brandFit: '0-10',
+            memorability: '0-10',
+            spreadability: '0-10',
+            uniqueness: '0-10',
+            registrability: '0-10'
+          }
+        }
+      ],
+      rules: 'must return exactly 10 candidates and valid JSON'
+    }
+  };
+
+  let llmRaw;
+  try {
+    const response = await fetch('https://open.bigmodel.cn/api/paas/v4/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model,
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a naming strategist. Return ONLY strict JSON with exactly 10 candidates. Use concise fields and valid score ranges.'
+          },
+          {
+            role: 'user',
+            content: JSON.stringify(promptPayload)
+          }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        ok: false,
+        errors: [`LLM request failed: ${response.status} ${errorText.slice(0, 200)}`]
+      };
+    }
+
+    const data = await response.json();
+    llmRaw = data?.choices?.[0]?.message?.content;
+  } catch (error) {
+    return {
+      ok: false,
+      errors: [`LLM request error: ${error.message}`]
+    };
+  }
+
+  let llmParsed;
+  try {
+    llmParsed = typeof llmRaw === 'string' ? JSON.parse(llmRaw) : llmRaw;
+  } catch (error) {
+    return {
+      ok: false,
+      errors: ['LLM returned non-JSON content. Please retry.']
+    };
+  }
+
+  const rawCandidates = Array.isArray(llmParsed?.candidates) ? llmParsed.candidates : [];
+  const fallbackResult = createTask(input);
+  const fallbackCandidates = fallbackResult.ok ? fallbackResult.data.candidates : [];
+
+  const normalizedCandidates = rawCandidates
+    .slice(0, 10)
+    .map((item, index) => {
+      const name = String(item?.name || '').trim();
+      const dimension = ['direct', 'metaphor', 'emotional', 'action'].includes(item?.dimension)
+        ? item.dimension
+        : fallbackCandidates[index % (fallbackCandidates.length || 1)]?.dimension || 'direct';
+
+      const feasibility = {
+        pronunciation: {
+          level: ['low', 'medium', 'high'].includes(item?.feasibility?.pronunciation?.level)
+            ? item.feasibility.pronunciation.level
+            : 'medium',
+          reason:
+            String(item?.feasibility?.pronunciation?.reason || '').trim() ||
+            'Pronunciation needs practical user verification.'
+        },
+        memorability: {
+          level: ['strong', 'medium', 'weak'].includes(item?.feasibility?.memorability?.level)
+            ? item.feasibility.memorability.level
+            : 'medium',
+          reason:
+            String(item?.feasibility?.memorability?.reason || '').trim() ||
+            'Memorability should be validated with target users.'
+        },
+        trademarkRisk: {
+          level: ['low', 'medium', 'high'].includes(item?.feasibility?.trademarkRisk?.level)
+            ? item.feasibility.trademarkRisk.level
+            : 'medium',
+          reason:
+            String(item?.feasibility?.trademarkRisk?.reason || '').trim() ||
+            'Trademark feasibility needs formal legal search.'
+        }
+      };
+
+      const rawScore = item?.score || {};
+      const score = {
+        clarity: clamp(Number(rawScore.clarity) || 6, 0, 10),
+        brandFit: clamp(Number(rawScore.brandFit) || 6, 0, 10),
+        memorability: clamp(Number(rawScore.memorability) || 6, 0, 10),
+        spreadability: clamp(Number(rawScore.spreadability) || 6, 0, 10),
+        uniqueness: clamp(Number(rawScore.uniqueness) || 6, 0, 10),
+        registrability: clamp(Number(rawScore.registrability) || 6, 0, 10)
+      };
+      const totalScore = Math.round(
+        score.clarity * 2.5 +
+          score.brandFit * 2.0 +
+          score.memorability * 2.0 +
+          score.spreadability * 1.5 +
+          score.uniqueness * 1.0 +
+          score.registrability * 1.0
+      );
+
+      return {
+        id: `cand_${index + 1}_${crypto.randomBytes(3).toString('hex')}`,
+        name: name || fallbackCandidates[index]?.name || `Candidate ${index + 1}`,
+        dimension,
+        nameLength: (name || fallbackCandidates[index]?.name || '').length,
+        keywordSource: parsed.tokens,
+        reason:
+          String(item?.reason || '').trim() ||
+          fallbackCandidates[index]?.reason ||
+          'Generated by LLM based on input context.',
+        toneFit:
+          String(item?.toneFit || '').trim() ||
+          fallbackCandidates[index]?.toneFit ||
+          'Aligned to requested brand tone.',
+        audienceFit:
+          String(item?.audienceFit || '').trim() ||
+          fallbackCandidates[index]?.audienceFit ||
+          'Adapted for target audience understanding.',
+        usageSuggestion:
+          String(item?.usageSuggestion || '').trim() ||
+          fallbackCandidates[index]?.usageSuggestion ||
+          'Suitable for feature naming surfaces.',
+        riskNote: 'LLM-generated recommendation. Perform final brand and legal review.',
+        feasibility,
+        score: {
+          ...score,
+          totalScore,
+          recommendationLevel: mapRecommendationLevel(totalScore),
+          summary: buildScoreSummary({ ...score, totalScore })
+        }
+      };
+    })
+    .filter((item) => item.name);
+
+  while (normalizedCandidates.length < 10 && fallbackCandidates.length) {
+    const fallbackItem = fallbackCandidates[normalizedCandidates.length % fallbackCandidates.length];
+    normalizedCandidates.push({
+      ...fallbackItem,
+      id: `cand_${normalizedCandidates.length + 1}_${crypto.randomBytes(3).toString('hex')}`
+    });
+  }
+
+  const candidates = normalizedCandidates
+    .slice(0, 10)
+    .sort((left, right) => right.score.totalScore - left.score.totalScore);
+
+  const taskId = `task_${Date.now()}_${crypto.randomBytes(3).toString('hex')}`;
+  return {
+    ok: true,
+    data: {
+      taskId,
+      status: 'completed',
+      createdAt: new Date().toISOString(),
+      generationMode: 'llm',
+      model,
+      inputSummary: {
+        featureDescription: parsed.featureDescription,
+        brandTone: parsed.brandTone,
+        targetUsers: parsed.targetUsers,
+        namingPreference: parsed.namingPreference,
+        industry: parsed.industry,
+        language: parsed.language
+      },
+      normalizedInput: {
+        coreCapability: parsed.coreCapability,
+        userBenefit: parsed.userBenefit,
+        toneTags: parsed.brandTone,
+        audienceTags: parsed.targetUsers,
+        styleTags: parsed.namingPreference,
+        tokens: parsed.tokens
+      },
+      candidates
+    }
+  };
 }
 
-module.exports = {
+function getConfig() {
+  return {
+    ...CONFIG,
+    generationModes: ['heuristic', 'llm'],
+    generationModeLabels: {
+      heuristic: '规则引擎',
+      llm: '大模型'
+    },
+    llmProvider: 'zhipu',
+    llmProviderLabel: '智谱',
+    llmModels: ['glm-4.5', 'glm-4.5-air', 'glm-4-plus']
+  };
+}
+
+export {
   createTask,
+  createTaskWithLLM,
   compareCandidates,
   getConfig
 };
