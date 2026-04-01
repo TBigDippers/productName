@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Product Naming Generator</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="hero">
+        <div>
+          <p class="eyebrow">Product Function Naming Generator</p>
+          <h1>Build clear, brand-fit names for product features</h1>
+          <p class="hero-copy">
+            Describe the feature, brand tone, and target users. The system generates 10 name options with rationale,
+            feasibility review, weighted scoring, comparison, and export.
+          </p>
+        </div>
+        <div class="hero-stats">
+          <div class="stat-card">
+            <span>Output</span>
+            <strong>10 names</strong>
+          </div>
+          <div class="stat-card">
+            <span>Evaluation</span>
+            <strong>Pronounce + Recall + Trademark</strong>
+          </div>
+          <div class="stat-card">
+            <span>Decision</span>
+            <strong>Scoring + Compare + Export</strong>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <section class="panel form-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Create naming brief</h2>
+              <p>Capture function goals, audience, and tone so the engine can generate stable candidates.</p>
+            </div>
+            <button id="resetButton" class="ghost-button" type="button">Reset</button>
+          </div>
+
+          <form id="namingForm" class="form-grid">
+            <label class="field field-full">
+              <span>Feature description</span>
+              <textarea
+                id="featureDescription"
+                name="featureDescription"
+                rows="5"
+                placeholder="Describe what the feature does, who uses it, and what problem it solves."
+                required
+              ></textarea>
+              <small>Suggested: 10 to 300 characters, include action + value + scenario.</small>
+            </label>
+
+            <label class="field">
+              <span>Target users</span>
+              <input id="targetUsers" name="targetUsers" type="text" placeholder="e.g. ecommerce shoppers, office managers" required />
+              <small>Use commas to separate multiple audiences.</small>
+            </label>
+
+            <label class="field">
+              <span>Industry</span>
+              <select id="industry" name="industry"></select>
+              <small>Used to steer base vocabulary and risk heuristics.</small>
+            </label>
+
+            <label class="field field-full">
+              <span>Brand tone</span>
+              <div id="brandToneGroup" class="chip-group"></div>
+              <small>Select up to three tone tags.</small>
+            </label>
+
+            <label class="field field-full">
+              <span>Naming preference</span>
+              <div id="preferenceGroup" class="chip-group"></div>
+              <small>Used to bias style selection and ranking summaries.</small>
+            </label>
+
+            <label class="field">
+              <span>Forbidden words</span>
+              <input id="forbiddenWords" name="forbiddenWords" type="text" placeholder="e.g. smart, assistant" />
+              <small>Any candidate containing these words will be filtered out.</small>
+            </label>
+
+            <label class="field">
+              <span>Language</span>
+              <select id="language" name="language">
+                <option value="en-US">English</option>
+              </select>
+              <small>MVP currently outputs English naming candidates.</small>
+            </label>
+
+            <div class="field field-full slider-field">
+              <div class="slider-head">
+                <span>Dimension weight</span>
+                <strong id="dimensionTotal">100%</strong>
+              </div>
+              <div class="slider-grid">
+                <label>
+                  <span>Direct</span>
+                  <input type="range" min="0" max="100" step="5" value="30" data-dimension="direct" />
+                  <b id="directValue">30%</b>
+                </label>
+                <label>
+                  <span>Metaphor</span>
+                  <input type="range" min="0" max="100" step="5" value="20" data-dimension="metaphor" />
+                  <b id="metaphorValue">20%</b>
+                </label>
+                <label>
+                  <span>Emotional</span>
+                  <input type="range" min="0" max="100" step="5" value="20" data-dimension="emotional" />
+                  <b id="emotionalValue">20%</b>
+                </label>
+                <label>
+                  <span>Action</span>
+                  <input type="range" min="0" max="100" step="5" value="30" data-dimension="action" />
+                  <b id="actionValue">30%</b>
+                </label>
+              </div>
+              <small>The four sliders must add up to 100% before generation.</small>
+            </div>
+
+            <div class="form-actions field-full">
+              <button id="generateButton" class="primary-button" type="submit">Generate naming options</button>
+              <p id="formMessage" class="status-text"></p>
+            </div>
+          </form>
+        </section>
+
+        <section class="panel result-panel">
+          <div class="panel-header">
+            <div>
+              <h2>Generated results</h2>
+              <p>Review candidates, compare shortlists, and export the full recommendation set.</p>
+            </div>
+            <div class="header-actions">
+              <button id="historyButton" class="ghost-button" type="button">History</button>
+              <button id="exportButton" class="primary-button" type="button" disabled>Export CSV</button>
+            </div>
+          </div>
+
+          <div id="summaryBlock" class="summary-block empty-state">
+            <h3>No results yet</h3>
+            <p>Fill the brief on the left and generate a shortlist of 10 naming candidates.</p>
+          </div>
+
+          <div id="toolbar" class="toolbar hidden">
+            <label>
+              <span>Filter by dimension</span>
+              <select id="dimensionFilter">
+                <option value="all">All</option>
+                <option value="direct">Direct</option>
+                <option value="metaphor">Metaphor</option>
+                <option value="emotional">Emotional</option>
+                <option value="action">Action</option>
+              </select>
+            </label>
+            <label>
+              <span>Sort by</span>
+              <select id="sortBy">
+                <option value="totalScore">Total score</option>
+                <option value="clarity">Clarity</option>
+                <option value="brandFit">Brand fit</option>
+                <option value="memorability">Memorability</option>
+              </select>
+            </label>
+          </div>
+
+          <div id="candidateList" class="candidate-list"></div>
+        </section>
+      </main>
+    </div>
+
+    <aside id="compareDrawer" class="compare-drawer hidden">
+      <div class="compare-header">
+        <div>
+          <p class="eyebrow">Compare</p>
+          <h2>Candidate comparison</h2>
+        </div>
+        <button id="closeCompareButton" class="ghost-button" type="button">Close</button>
+      </div>
+      <p class="drawer-copy">Choose 2 to 4 candidates to compare strengths, weaknesses, and weighted score detail.</p>
+      <div id="compareContent" class="compare-content empty-state">
+        <h3>No candidates selected</h3>
+        <p>Add up to four names from the result list to unlock the comparison table.</p>
+      </div>
+    </aside>
+
+    <dialog id="historyDialog" class="history-dialog">
+      <div class="dialog-header">
+        <div>
+          <p class="eyebrow">History</p>
+          <h2>Previous naming tasks</h2>
+        </div>
+        <button id="closeHistoryButton" class="ghost-button" type="button">Close</button>
+      </div>
+      <div id="historyList" class="history-list empty-state">
+        <h3>No history yet</h3>
+        <p>Completed naming tasks will appear here.</p>
+      </div>
+    </dialog>
+
+    <script src="/app.js" defer></script>
+  </body>
+</html>

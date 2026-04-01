@@ -1,0 +1,10 @@
+{
+  "name": "product-function-naming-generator",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Web and API naming generator for product features",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  }
+}
