@@ -9,7 +9,53 @@ const DIMENSION_LABELS = {
   action: '行动导向型'
 };
 
+const DEFAULT_CONFIG = {
+  industries: ['general', 'ecommerce', 'finance', 'office', 'education', 'local_service', 'content'],
+  industryLabels: {
+    general: '通用',
+    ecommerce: '电商',
+    finance: '金融',
+    office: '办公',
+    education: '教育',
+    local_service: '本地生活',
+    content: '内容'
+  },
+  brandToneOptions: ['professional', 'reliable', 'warm', 'young', 'technology', 'minimal', 'premium', 'friendly'],
+  brandToneLabels: {
+    professional: '专业',
+    reliable: '可靠',
+    warm: '温暖',
+    young: '年轻',
+    technology: '科技',
+    minimal: '简约',
+    premium: '高端',
+    friendly: '友好'
+  },
+  namingPreferenceOptions: ['concise', 'easy_to_remember', 'brand_forward', 'feature_forward', 'young_style', 'professional_style'],
+  namingPreferenceLabels: {
+    concise: '简洁',
+    easy_to_remember: '易记',
+    brand_forward: '品牌导向',
+    feature_forward: '功能导向',
+    young_style: '年轻化',
+    professional_style: '专业感'
+  },
+  llmModels: ['glm-4.5', 'glm-4.5-air', 'glm-4-plus'],
+  warningCopy: '商标风险仅为启发式建议，不构成法律意见。'
+};
+
 export default function NamingForm({ config, isLoading, onTaskGenerated, showToast }) {
+  const resolvedConfig = useMemo(
+    () => ({
+      ...DEFAULT_CONFIG,
+      ...(config || {}),
+      industryLabels: { ...DEFAULT_CONFIG.industryLabels, ...(config?.industryLabels || {}) },
+      brandToneLabels: { ...DEFAULT_CONFIG.brandToneLabels, ...(config?.brandToneLabels || {}) },
+      namingPreferenceLabels: { ...DEFAULT_CONFIG.namingPreferenceLabels, ...(config?.namingPreferenceLabels || {}) }
+    }),
+    [config]
+  );
+
   const [formData, setFormData] = useState({
     featureDescription: '',
     targetUsers: '',
@@ -32,12 +78,12 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
   const isLLMMode = formData.mode === 'llm';
 
   useEffect(() => {
-    if (!config?.llmModels?.length) return;
-    setFormData((prev) => ({
-      ...prev,
-      model: config.llmModels.includes(prev.model) ? prev.model : config.llmModels[0]
-    }));
-  }, [config]);
+    if (!resolvedConfig.llmModels.length) return;
+    setFormData((prev) => {
+      const nextModel = resolvedConfig.llmModels.includes(prev.model) ? prev.model : resolvedConfig.llmModels[0];
+      return nextModel === prev.model ? prev : { ...prev, model: nextModel };
+    });
+  }, [resolvedConfig]);
 
   const generateMutation = useMutation({
     mutationFn: (payload) => (payload.mode === 'llm' ? generateNamesWithLLM(payload) : generateNames(payload)),
@@ -98,7 +144,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
       forbiddenWords: '',
       language: 'en-US',
       mode: 'heuristic',
-      model: config?.llmModels?.[0] || 'glm-4.5',
+      model: resolvedConfig.llmModels[0] || 'glm-4.5',
       apiKey: '',
       dimensionWeight: { direct: 30, metaphor: 20, emotional: 20, action: 30 }
     });
@@ -185,7 +231,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
                   onChange={(e) => setFormData((prev) => ({ ...prev, model: e.target.value }))}
                   className="input"
                 >
-                  {(config?.llmModels || ['glm-4.5']).map((model) => (
+                  {resolvedConfig.llmModels.map((model) => (
                     <option key={model} value={model}>
                       {model}
                     </option>
@@ -245,9 +291,9 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
             onChange={(e) => setFormData((prev) => ({ ...prev, industry: e.target.value }))}
             className="input"
           >
-            {config?.industries?.map((industry) => (
+            {resolvedConfig.industries.map((industry) => (
               <option key={industry} value={industry}>
-                {config?.industryLabels?.[industry] || industry}
+                {resolvedConfig.industryLabels[industry] || industry}
               </option>
             ))}
           </select>
@@ -256,7 +302,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">品牌调性（可选）</label>
           <div className="flex flex-wrap gap-2">
-            {config?.brandToneOptions?.map((tone) => (
+            {resolvedConfig.brandToneOptions.map((tone) => (
               <button
                 key={tone}
                 type="button"
@@ -267,7 +313,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {config?.brandToneLabels?.[tone] || tone}
+                {resolvedConfig.brandToneLabels[tone] || tone}
               </button>
             ))}
           </div>
@@ -276,7 +322,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">命名偏好</label>
           <div className="flex flex-wrap gap-2">
-            {config?.namingPreferenceOptions?.map((pref) => (
+            {resolvedConfig.namingPreferenceOptions.map((pref) => (
               <button
                 key={pref}
                 type="button"
@@ -287,7 +333,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {config?.namingPreferenceLabels?.[pref] || pref}
+                {resolvedConfig.namingPreferenceLabels[pref] || pref}
               </button>
             ))}
           </div>
@@ -332,7 +378,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
           </div>
         </div>
 
-        {config?.warningCopy && (
+        {resolvedConfig.warningCopy && (
           <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-100 rounded-xl">
             <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -342,7 +388,7 @@ export default function NamingForm({ config, isLoading, onTaskGenerated, showToa
                 d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <p className="text-sm text-amber-700">{config.warningCopy}</p>
+            <p className="text-sm text-amber-700">{resolvedConfig.warningCopy}</p>
           </div>
         )}
 
