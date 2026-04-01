@@ -5,9 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    hmr: {
-      overlay: true
-    },
+    hmr: false,
     watch: {
       usePolling: false
     },
