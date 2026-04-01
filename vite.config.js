@@ -5,6 +5,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    hmr: {
+      overlay: true
+    },
+    watch: {
+      usePolling: false
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3000',
